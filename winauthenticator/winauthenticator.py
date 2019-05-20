@@ -1,5 +1,6 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import os
 from tornado.concurrent import run_on_executor
 from traitlets import default, Any, Bool
 
@@ -51,7 +52,8 @@ class WinAuthenticator(LocalAuthenticator):
         self.create_system_users not supported.
         """
         islocaluser = '@' not in user.name
-        user_exists = await maybe_future(self.system_user_exists(user))
+        username, domain = self.split_user_domain(user.name)
+        user_exists = await maybe_future(self.system_user_exists(username))
         if not user_exists and islocaluser:
             if self.create_system_users:
                 raise KeyError("There is no support for create_system_users on Windows")
@@ -61,13 +63,13 @@ class WinAuthenticator(LocalAuthenticator):
         await maybe_future(Authenticator.add_user(self, user))
 
     @staticmethod
-    def system_user_exists(user):
+    def system_user_exists(username):
         """Check if the user exists on the system"""
-        local_users = win32net.NetUserEnum(None, 0)[0]
-        for local_user in local_users:
-            if local_user['name'] == user.name:
-                return True
-        return False
+        local_users = os.listdir("\\".join([os.getenv("SystemDrive"), "Users"]))
+        if username in local_users:
+            return True
+        else:
+            return False
 
     @staticmethod
     def split_user_domain(username):
