@@ -69,6 +69,18 @@ class WinAuthenticator(LocalAuthenticator):
                 return True
         return False
 
+    @staticmethod
+    def split_user_domain(username):
+        domain = "."
+
+        if '@' in username:
+            username, domain = username.split('@')
+
+        if "\\" in username:
+            domain, username = username.split("\\")
+
+        return (username, domain)
+
     def check_group_whitelist(self, username):
         """
         If group_whitelist is configured, check if authenticating user is part of group.
@@ -91,11 +103,7 @@ class WinAuthenticator(LocalAuthenticator):
         """Authenticate with Windows, and return the username if login is successful.
         Return None otherwise.
         """
-        domain = '.'
-        username = data['username']
-
-        if '@' in data['username']:
-            username, domain = username.split('@')
+        username, domain = self.split_user_domain(data["username"])
 
         try:
             token = win32security.LogonUser(
@@ -112,7 +120,8 @@ class WinAuthenticator(LocalAuthenticator):
         if not token:
             return None
         return {
-            'name': data['username'],
+            'name': username,
+            'domain': domain,
             'auth_state': {
                 # Detach so the underlying winhandle stays alive
                 'auth_token': token.Detach(),
